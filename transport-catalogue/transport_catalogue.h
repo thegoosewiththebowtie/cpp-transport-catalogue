@@ -1,5 +1,4 @@
 #pragma once
-#include <deque>
 #include <memory>
 #include <set>
 #include <string>
@@ -28,12 +27,13 @@ public:
 	const Bus* FindBus(std::string_view name) const;
 	const std::set<std::string> *FindStopBusList(std::string_view name) const;
 
-	size_t GetBusStopCount(std::string_view name) const;
-	std::unique_ptr<std::tuple<size_t, size_t, std::string>> GetBusStats(const Bus *bus) const;
-	size_t GetUniqueStopCount(std::string_view name) const;
-	std::string GetBusListAsString(std::string_view name) const;
+	static std::tuple<size_t, size_t, double> GetBusStats(const Bus *bus);
 
 private:
+	static size_t GetBusStopCount(const Bus *bus) ;
+	static size_t GetUniqueStopCount(const Bus *bus);
+	static double GetRouteGeoDistance(const Bus *bus);
+
 	std::unordered_map<std::string, std::set<std::string>> buses_by_stop_;
 	std::unordered_map<std::string, Stop> stops_;
 	std::unordered_map<std::string, Bus> buses_;
