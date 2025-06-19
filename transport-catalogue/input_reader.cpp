@@ -2,7 +2,10 @@
 
 #include <algorithm>
 #include <cassert>
+#include <istream>
 #include <iterator>
+
+#include "stat_reader.h"
 
 Coordinates ParseCoordinates(std::string_view str) {
     static const double nan = std::nan("");
@@ -59,36 +62,53 @@ std::vector<std::string_view> ParseRoute(std::string_view route) {
 
 CommandDescription ParseCommandDescription(std::string_view line) {
     std::size_t colon_pos = line.find(':');
-    if (colon_pos == std::string_view::npos) {
-        return {};
-    }
+    if (colon_pos == std::string_view::npos) { return {}; }
     std::size_t space_pos = line.find(' ');
-    if (space_pos >= colon_pos) {
-        return {};
-    }
+    if (space_pos >= colon_pos) { return {}; }
     std::size_t not_space = line.find_first_not_of(' ', space_pos);
-    if (not_space >= colon_pos) {
-        return {};
-    }
-    return {std::string(line.substr(0, space_pos)),
-            std::string(line.substr(not_space, colon_pos - not_space)),
-            std::string(line.substr(colon_pos + 1))};
+    if (not_space >= colon_pos) { return {}; }
+    return {  std::string(line.substr(0, space_pos)),
+                std::string(line.substr(not_space, colon_pos - not_space)),
+                std::string(line.substr(colon_pos + 1))};
 }
 
-void InputReader::ParseLine(std::string_view line) {
+void InputReader::ReadBaseInput(std::istream& ins, TransportCatalogue& transport_catalogue) {
+    int base_request_count;
+    ins >> base_request_count >> std::ws;
+    {
+        for (int i = 0; i < base_request_count; ++i) {
+            std::string line;
+            getline(ins, line);
+            ParseLine(line);
+        }
+        ApplyCommands(transport_catalogue);
+    }
+}
+
+void InputReader::ReadStatInput(std::istream& ins, std::ostream& ous, const TransportCatalogue& transport_catalogue) {
+    int stat_request_count;
+    ins >> stat_request_count >> std::ws;
+    for (int i = 0; i < stat_request_count; ++i) {
+        std::string line;
+        getline(ins, line);
+        ParseAndPrintStat(transport_catalogue, line, ous);
+    }
+}
+
+void InputReader::ParseLine(const std::string_view line) {
     if (CommandDescription command_description = ParseCommandDescription(line)) {
         commands_.push_back(std::move(command_description));
     }
 }
 
-void InputReader::ApplyCommands([[maybe_unused]] TransportCatalogue& catalogue) const {
+void InputReader::ApplyCommands(TransportCatalogue& catalogue) const {
     for (const CommandDescription &cmd: commands_) {
         if (cmd.command == "Stop") {
             Coordinates coords = ParseCoordinates(cmd.description);
             catalogue.AddStop(cmd.id, coords);
         } else if (cmd.command == "Bus") {
             bool is_roundtrip = cmd.description.contains('>');
-            auto stops = ParseRoute(cmd.description);
+            std::vector<std::string_view> stops = ParseRoute(cmd.description);
             catalogue.AddBus(cmd.id, stops, is_roundtrip);
         }
     }
