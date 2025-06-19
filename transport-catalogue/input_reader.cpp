@@ -91,7 +91,7 @@ void InputReader::ReadStatInput(std::istream& ins, std::ostream& ous, const Tran
     for (int i = 0; i < stat_request_count; ++i) {
         std::string line;
         getline(ins, line);
-        ParseAndPrintStat(transport_catalogue, line, ous);
+        Parcer::ParseAndPrintStat(transport_catalogue, line, ous);
     }
 }
 
