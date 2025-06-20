@@ -14,12 +14,6 @@ void Parcer::ParseAndPrintStat(const TransportCatalogue& transport_catalogue, st
         if (const Bus *bus = transport_catalogue.FindBus(id); !bus) {
             output << "Bus " << id << ": not found\n";
         } else {
-            /// >>Да зачем здесь целый unique_ptr?
-            /// ну так он тут потому что я невероятно тупая
-            /// и стул, на котором я сейчас сижу, обладает бОльшим интеллектом,
-            /// чем существо, которое сейчас сидит перед клавиатурой
-            /// и должно было быть отчислено без возврата средств
-            /// уже тысячу лет назад за такой идиотизм :3
             std::tuple<size_t, size_t, double> bus_stats = TransportCatalogue::GetBusStats(bus);
             output << "Bus " << id << ": " <<
                 std::get<0>(bus_stats)
@@ -36,8 +30,6 @@ void Parcer::ParseAndPrintStat(const TransportCatalogue& transport_catalogue, st
             if (auto buslist = transport_catalogue.FindStopBusList(stop->name); buslist == nullptr) {
                 output << "Stop " << id << ": no buses\n";
             } else {
-                ///>>зачем-то получаете список
-                ///тупая яяяя, см выше
                 output << "Stop " << id << ": buses " + BusListToString(buslist) + "\n";
             }
         }
