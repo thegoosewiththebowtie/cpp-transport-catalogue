@@ -39,8 +39,6 @@ const std::set<std::string> *TransportCatalogue::FindStopBusList(const std::stri
 }
 
 std::tuple<size_t, size_t, double> TransportCatalogue::GetBusStats(const Bus *bus) {
-    ///ну так все по той же причине, идиотка я,
-    /// за что дико извиняюсь и пытаюсь что-то с этим сделать(пока безуспешно)
     return {GetBusStopCount(bus), GetUniqueStopCount(bus), GetRouteGeoDistance(bus)};
 }
 
