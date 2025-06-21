@@ -2,26 +2,36 @@
 
 #include <cmath>
 
-struct Coordinates {
-    double lat;
-    double lng;
-    bool operator==(const Coordinates& other) const {
-        return lat == other.lat && lng == other.lng;
+class Geo {
+public:
+    struct Coordinates {
+        double lat;
+        double lng;
+
+        bool operator==(const Coordinates &other) const {
+            return lat == other.lat && lng == other.lng;
+        }
+
+        bool operator!=(const Coordinates &other) const {
+            return !(*this == other);
+        }
+    };
+
+    static double ComputeDistance(const Coordinates& from, const Coordinates& to) {
+        constexpr int EARTH_RADIUS = 6371000;
+        constexpr double DEGREES_PER_PI = 180;
+        constexpr double PI = 3.1415926535;
+        if (from == to) { return 0; }
+        static constexpr double CONVERSION_FACTOR =  PI/DEGREES_PER_PI;
+        return std::acos(std::sin(from.lat * CONVERSION_FACTOR)
+                        * std::sin(to.lat * CONVERSION_FACTOR)
+                    + std::cos(from.lat * CONVERSION_FACTOR)
+                        * std::cos(to.lat * CONVERSION_FACTOR)
+                        * std::cos(std::abs(from.lng - to.lng) * CONVERSION_FACTOR)
+                    ) * EARTH_RADIUS;
     }
-    bool operator!=(const Coordinates& other) const {
-        return !(*this == other);
+
+    static double GetRouteCurvature(const double f_distance, const double g_distance) {
+        return f_distance / g_distance;
     }
 };
-
-inline double ComputeDistance(Coordinates from, Coordinates to) {
-    using namespace std;
-    ///ComputeDistance был в условии уже готовый, вот я и не меняла тн "магические числа"
-    int earth_rad = 6371000;
-    if (from == to) {
-        return 0;
-    }
-    static const double dr = 3.1415926535 / 180.;
-    return acos(sin(from.lat * dr) * sin(to.lat * dr)
-                + cos(from.lat * dr) * cos(to.lat * dr) * cos(abs(from.lng - to.lng) * dr))
-        * earth_rad;
-}
