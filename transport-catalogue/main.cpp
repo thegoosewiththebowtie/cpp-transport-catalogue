@@ -7,6 +7,6 @@ int main() {
     {
         InputReader reader;
         reader.ReadBaseInput(std::cin, transport_catalogue);
-        reader.ReadStatInput(std::cin, std::cout, transport_catalogue);
+        InputReader::ReadStatInput(std::cin, std::cout, transport_catalogue);
     }
 }
