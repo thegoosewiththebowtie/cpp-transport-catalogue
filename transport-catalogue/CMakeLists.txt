@@ -1,0 +1,67 @@
+cmake_minimum_required(VERSION 3.31)
+set(CMAKE_CXX_STANDARD 20)
+project(TransportCatalogue)
+
+add_subdirectory(jsonLib)
+add_subdirectory(svgLib)
+add_subdirectory(salatLib)
+add_compile_options(
+        -Wuninitialized
+        -Wmaybe-uninitialized
+        -Wall
+        -Wextra
+        -Wpedantic
+        -Werror=all
+        -Werror=extra
+        -Werror=pedantic
+        -Werror=unused
+        -Werror=unused-parameter
+        -Werror=unused-variable
+        -Werror=unused-function
+        -Werror=sign-compare
+        -Werror=return-type
+        -Werror=maybe-uninitialized
+        -Werror=uninitialized
+        -Werror=init-self
+        -Werror=reorder
+        -Werror=misleading-indentation
+        -Werror=parentheses
+        -Werror=missing-braces
+        -Werror=sequence-point
+        -Werror=unused-result
+        -Werror=format
+        -Werror=format-security
+        -Werror=implicit-fallthrough
+        -Werror=delete-non-virtual-dtor
+        -Werror=non-virtual-dtor
+        -Werror=cast-align
+        -Werror=write-strings
+        -Werror=conversion-null
+        -Werror=double-promotion
+        -Werror=shadow
+        -Werror=strict-aliasing
+        -Werror=strict-overflow
+        -Werror=missing-noreturn
+        -Werror=duplicated-cond
+        -Werror=duplicated-branches
+)
+
+add_executable(TransportCatalogue
+        main.cpp
+        geo.h
+        in_parser.cpp
+        in_parser.h
+        out_parser.cpp
+        out_parser.h
+        transport_catalogue.cpp
+        transport_catalogue.h
+        common.cpp
+        common.h
+        maprenderer.cpp
+        maprenderer.h
+)
+
+target_link_libraries(TransportCatalogue
+        jsonLib
+        svgLib
+)
