@@ -49,16 +49,13 @@ add_compile_options(
 add_executable(TransportCatalogue
         main.cpp
         geo.h
-        in_parser.cpp
-        in_parser.h
-        out_parser.cpp
-        out_parser.h
+        geo.cpp
+        parser.cpp
+        parser.h
         transport_catalogue.cpp
         transport_catalogue.h
         common.cpp
         common.h
-        maprenderer.cpp
-        maprenderer.h
 )
 
 target_link_libraries(TransportCatalogue
