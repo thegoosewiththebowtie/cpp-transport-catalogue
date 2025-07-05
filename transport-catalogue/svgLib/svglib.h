@@ -1,33 +1,39 @@
 /* [≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡▲≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡] */
 #pragma once
-#define _USE_MATH_DEFINES
+//макрос для более красивого выделения интерфейсных функций
 #define PURE_CTM 0
-#include <cmath>
 #include <memory>
 #include <optional>
 #include <string>
 #include <variant>
 #include <vector>
-
-#include "svglib.h"
 namespace svglib {
     /*[BEGIN:===============================================ENUMS====================================================]*/
+    //варианты для настроек свгшки
     enum class eStrokeLineCap { BUTT , ROUND , SQUARE , };
     enum class eStrokeLineJoin { ARCS , BEVEL , MITER , MITER_CLIP , ROUND , };
     /*[END:=================================================ENUMS====================================================]*/
 
     /*[BEGIN:==============================================STRUCTS===================================================]*/
+    //структура для непрозрачного цвета
     struct sSolidColor {
         unsigned char red{0};
         unsigned char green{0};
         unsigned char blue{0};
     };
+    //прозрачного цвета
     struct sTransparentColor {
         unsigned char red{0};
         unsigned char green{0};
         unsigned char blue{0};
         double        opacity{1};
     };
+    /*[BEGIN:=============================================TYPEDEFS===================================================]*/
+    //собсно цвет
+    using color_TD = std::variant<std::monostate , std::string , sSolidColor , sTransparentColor>;
+    inline const color_TD K_NONE_COLOR{"none"};
+    /*[END:===============================================TYPEDEFS===================================================]*/
+    //визитор для варианта с цветом, умеет их выводить
     struct sColourVisitor {
         std::ostream& out;
         void          operator()(std::monostate) const { out << "none"; }
@@ -45,6 +51,7 @@ namespace svglib {
             out.flags(f);
         }
     };
+    //точка
     struct sPoint {
         sPoint() = default;
 
@@ -55,6 +62,7 @@ namespace svglib {
         double x{0};
         double y{0};
     };
+    //рендерилка, через нее все печатается
     struct sRenderContext {
         sRenderContext(std::ostream& arg_out)
             : out(arg_out) {}
@@ -74,12 +82,8 @@ namespace svglib {
     };
     /*[END:================================================STRUCTS===================================================]*/
 
-    /*[BEGIN:=============================================TYPEDEFS===================================================]*/
-    using color_TD = std::variant<std::monostate , std::string , sSolidColor , sTransparentColor>;
-    inline const color_TD K_NONE_COLOR{"none"};
-    /*[END:===============================================TYPEDEFS===================================================]*/
-
     /*[BEGIN:=============================================OPERATORS==================================================]*/
+    //<< для eStrokeLineCap
     inline std::ostream& operator<<(std::ostream& arg_os , const eStrokeLineCap& arg_estroke_line_cap) {
         switch(arg_estroke_line_cap) {
             case eStrokeLineCap::BUTT : arg_os << "butt";
@@ -91,7 +95,7 @@ namespace svglib {
         }
         return arg_os;
     }
-
+    //<< для eStrokeLineJoin
     inline std::ostream& operator<<(std::ostream& arg_os , const eStrokeLineJoin& arg_estroke_line_join) {
         switch(arg_estroke_line_join) {
             case eStrokeLineJoin::ARCS : arg_os << "arcs";
@@ -107,7 +111,7 @@ namespace svglib {
         }
         return arg_os;
     }
-
+    //<< для color_TD (но работает в основном sColorVisitor)
     inline std::ostream& operator<<(std::ostream& arg_out , const color_TD& arg_colour) {
         std::visit(sColourVisitor{arg_out}, arg_colour);
         return arg_out;
@@ -117,6 +121,7 @@ namespace svglib {
 
     /*[BEGIN:==============================================CLASSES===================================================]*/
     /*[BEGIN:==============================================OBJECTS===================================================]*/
+    //общий класс для удобства манипуляции остальных
     class Object {
         public:
             virtual ~Object() = default;
@@ -124,12 +129,12 @@ namespace svglib {
         private:
             virtual void RenderObject(const sRenderContext& arg_context) const = PURE_CTM;
     };
-
+//общий класс для общих параметров, является темплейтов для того \/
     template<typename tDerived>
     class PathProps {
         public:
             virtual ~PathProps() = default;
-
+            //чтобы эти функции могли возвращать правильный тип (тот от которого пришла команда
             tDerived& SetFillColor(const color_TD& arg_colour);
             tDerived& SetStrokeColor(const color_TD& arg_colour);
             tDerived& SetStrokeWidth(double arg_width);
@@ -142,7 +147,7 @@ namespace svglib {
             std::optional<eStrokeLineCap>  line_cap_;
             std::optional<eStrokeLineJoin> line_join_;
     };
-
+//наследует от темплейта со своим классом в темплейте
     class Circle final : public Object , public PathProps<Circle> {
         public:
             Circle& SetCenter(sPoint arg_center);
@@ -198,6 +203,7 @@ namespace svglib {
     /*[END:================================================OBJECTS===================================================]*/
 
     /*[BEGIN:=========================================OBJECTS_CONTAINERS=============================================]*/
+    //родительский класс для всех контейнеров хранящих объекты, пока это ток Document
     class ObjectContainer {
         public:
             virtual ~ObjectContainer() = default;
@@ -216,70 +222,6 @@ namespace svglib {
             std::vector<std::unique_ptr<Object>> objects_;
     };
     /*[END:===========================================OBJECTS_CONTAINERS=============================================]*/
-
-    /*[BEGIN:============================================DRAWABLE_P1=================================================]*/
-    class Drawable {
-        public:
-            virtual      ~Drawable() = default;
-            virtual void Draw(ObjectContainer& arg_container) const = PURE_CTM;
-    };
-    /*[END:==============================================DRAWABLE_P1=================================================]*/
     /*[END:================================================CLASSES===================================================]*/
-}
-namespace shapes {
-    /*[BEGIN:============================================DRAWABLE_P2=================================================]*/
-    class Star final : public svglib::Drawable {
-        public:
-            Star(const svglib::sPoint& arg_center
-               , double                arg_outer_radius
-               , double                arg_inner_radius
-               , int32_t               arg_num_rays);
-            void Draw(svglib::ObjectContainer& arg_container) const override;
-        private:
-            svglib::sPoint center_;
-            double         outer_radius_{} , inner_radius_{};
-            int            num_rays_{};
-    };
-    class Snowman final : public svglib::Drawable {
-        public:
-            Snowman(svglib::sPoint arg_head_center , double arg_head_radius);
-            void Draw(svglib::ObjectContainer& arg_container) const override;
-        private:
-            svglib::sPoint head_center_;
-            double         head_radius_;
-    };
-    class Triangle final : public svglib::Drawable {
-        public:
-            Triangle(svglib::sPoint arg_point1 , svglib::sPoint arg_point2 , svglib::sPoint arg_point3);
-            void Draw(svglib::ObjectContainer& arg_container) const override;
-        private:
-            svglib::sPoint point1_ , point2_ , point3_;
-    };
-    /*[END:==============================================DRAWABLE_P2=================================================]*/
-}
-
-namespace drawing_utilities {
-    template<typename tDrawableIterator>
-    void gDrawPicture(tDrawableIterator arg_begin , tDrawableIterator arg_end , svglib::ObjectContainer& arg_target) {
-        for(auto it = arg_begin ; it != arg_end ; ++it) { (*it)->Draw(arg_target); }
-    }
-
-    template<typename tContainer>
-    void gDrawPicture(const tContainer& arg_container , svglib::ObjectContainer& arg_target) {
-        using namespace std;
-        DrawPicture(begin(arg_container), end(arg_container), arg_target);
-    }
-
-    inline unsigned char gLerp(const unsigned char arg_from , const unsigned char arg_to , const double arg_t) {
-        return static_cast<unsigned char>(std::round((arg_to - arg_from) * arg_t + arg_from));
-    }
-
-    inline svglib::sSolidColor gLerp(const svglib::sSolidColor arg_from
-                                   , const svglib::sSolidColor arg_to
-                                   , const double              arg_t) {
-        return {gLerp(arg_from.red, arg_to.red, arg_t)
-              , gLerp(arg_from.green, arg_to.green, arg_t)
-              , gLerp(arg_from.blue, arg_to.blue, arg_t)};
-    }
 }
 /* [≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡▲≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡] */
