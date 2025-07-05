@@ -10,6 +10,8 @@
 /*[=======коммент для ревьюера: я сама писала эту библиотеку если что, а то б*лин оформила официально ка*пец :3======]*/
 namespace salatlib {
     /*[BEGIN:=============================================VARIABLES==================================================]*/
+
+    //переменные для декорации вывода
 #define IDENTITY arg_file << " => " << arg_line << " in " <<  arg_function
     constexpr const char* K_SALAT = "SALAT™: ";
     constexpr const char* K_SALT  = "SALT™ : ";
@@ -25,6 +27,7 @@ namespace salatlib {
     constexpr const char* K_WAR   = "WAR: ";
     constexpr const char* K_TRW   = "TRW: ";
     class SALAT {
+        //переменные нужные для работы SALAT, SALT, RIN и FICO
         enum class eOwner { NONE , SALT , SALAT };
         struct sStandaloneTimer {
             double                                             timertime{};
@@ -40,10 +43,12 @@ namespace salatlib {
             /*[END:============================================VARIABLES=============================================]*/
 
             /*[BEGIN:============================================EXTRA===============================================]*/
+            //constexpr хэшер для экономии runtime эффективности (все названия функций известны заранее)
             static constexpr uint64_t HashStr(const char* str , const uint64_t hash = 14695981039346656037ull) {
                 return (*str) ? HashStr(str + 1, (hash ^ static_cast<uint64_t>(*str)) * 1099511628211ull) : hash;
             }
 
+            //проверяет является ли arg_char одним из whitespace chars, используется FICO™
             static bool IsWhitespace(const char arg_char) {
                 switch(arg_char) {
                     case ' ' :
@@ -56,21 +61,25 @@ namespace salatlib {
                 }
             }
 
-            static void TrimString(std::string& s) {
-                const auto first = std::find_if_not(s.begin(), s.end(), IsWhitespace);
-                if(first == s.end()) {
-                    s.clear();
+            //обрезает все whitespace chars из arg_string, используется FICO™
+            static void TrimString(std::string& arg_string) {
+                const auto first = std::find_if_not(arg_string.begin(), arg_string.end(), IsWhitespace);
+                if(first == arg_string.end()) {
+                    arg_string.clear();
                     return;
                 }
-                const auto last = std::find_if_not(s.rbegin(), s.rend(), IsWhitespace).base();
-                s.erase(last, s.end());
-                s.erase(s.begin(), first);
+                const auto last = std::find_if_not(arg_string.rbegin(), arg_string.rend(), IsWhitespace).base();
+                arg_string.erase(last, arg_string.end());
+                arg_string.erase(arg_string.begin(), first);
             }
 
+            //устанавливает стрим для вывода лога
             static void SetLogOutput(std::ostream& arg_out) { out_ = &arg_out; }
             /*[END:=============================================EXTRA================================================]*/
 
             /*[BEGIN:===========================================RIN™=================================================]*/
+            //логгер, возвращает то же, что и было передано в него на случай если нужно вывести что-то что используется
+            //дальше, например для мониторинга переменной: auto somevar = SALAT_RINLOG(GetSomeVar(somevar1, somevar2));
             template<typename tRet>
             static tRet InvokeLog(const eMessageLevel arg_message_level
                                 , const int           arg_line
@@ -96,6 +105,7 @@ namespace salatlib {
                 return arg_message;
             }
 
+            //кидатель, выводит данные о том, что кинуло ошибку и кидает ошибку
             template<typename tException = std::runtime_error>
             [[noreturn]] static void InvokeError(const int          arg_line
                                                , const char*        arg_function
@@ -117,6 +127,10 @@ namespace salatlib {
             /*[END:=============================================RIN™=================================================]*/
 
             /*[BEGIN:===========================================SALT™================================================]*/
+            //SALT, я назвала его Standalone тк до этого таймер был привязан к логгеру и это был дополнительный
+            //из логгера я его убрала, но название осталось
+            //таймеры нцужны для выявления bottleneckов (да и для моментов когда что-то кидает ошибку, чтобы видеть
+            //где это произошло
             static void StandaloneTimerBegin(const int                arg_line
                                            , const unsigned long long arg_hash
                                            , const bool               arg_log
@@ -185,9 +199,13 @@ namespace salatlib {
                 }
                 return ms.count();
             }
+
             /*[END:=============================================SALT™================================================]*/
 
             /*[BEGIN:==========================================SALAT™================================================]*/
+            //а SALAT™ занимается вычислением среднего времени, потраченного на каждый запрос к функции/циклу
+            //чтобы не нужно было выводить сотни таймеров. фан факт: ии обычно не печется о производительности
+            //(да и писать код он не умеет, его код никогда не компилится)
             static void StandaloneAverageBegin(const int          arg_line
                                              , const char*        arg_function
                                              , const std::string& arg_file) {
@@ -216,6 +234,7 @@ namespace salatlib {
                 *out_ << K_SALAT << K_BEG << IDENTITY << std::endl;
             }
 
+            //прерывает таймер во время выполнения измеряемой функции для дальнейшего рассчета
             static void StandaloneAverageBreak(const int          arg_line
                                              , const char*        arg_function
                                              , const std::string& arg_file) {
@@ -245,6 +264,7 @@ namespace salatlib {
                 StandaloneTimerBegin(arg_line, hash_key, false, arg_function, arg_file);
             }
 
+            //полностью останавливает SALAT™ и выводит информацию о выполнении функции
             static double StandaloneAverageEnd(const int          arg_line
                                              , const char*        arg_function
                                              , const std::string& arg_file) {
@@ -285,8 +305,13 @@ namespace salatlib {
             /*[END:============================================SALAT™================================================]*/
 
             /*[BEGIN:==========================================FICO™=================================================]*/
+            //сравнивает два файла с разными параметрами строгости (может это делать с игнорированием пустых символов
+            //или без него) template для того, чтобы это все прекомпилировалось и не тратились ресурсы
             template<eIgnore tIgnore>
-            static int FileComparer(const std::string& file1path , const std::string& file2path) {
+            static int FileComparer(const std::string& file1path
+                                  , const std::string& file2path
+                                  , [[maybe_unused]]bool               nochar
+                                  , bool               nostring) {
                 bool          nodiff = true;
                 std::ifstream file1(file1path);
                 std::ifstream file2(file2path);
@@ -307,9 +332,10 @@ namespace salatlib {
                     }
                     if(line1 != line2) {
                         nodiff = false;
-                        *out_ << K_FICO << "NGL: " << line_number << "\n" << K_FICO << "FL1: " << line1 << "\n" <<
-                                K_FICO << "LEN: " << line1.size() << "\n" << K_FICO << "FL2: " << line2 << "\n" <<
-                                K_FICO << "LEN: " << line2.size() << "\n";
+                        *out_ << K_FICO << "NGL: " << line_number << "\n" << K_FICO << "FL1: " << (
+                                    nostring ? "" : line1) << "\n" << K_FICO << "LEN: " << line1.size() << "\n" <<
+                                K_FICO <<
+                                "FL2: " << (nostring ? "" : line2) << "\n" << K_FICO << "LEN: " << line2.size() << "\n";
                     }
                     ++line_number;
                 }
@@ -319,14 +345,18 @@ namespace salatlib {
                 return nodiff ? 0 : -1;
             }
 
-            static int FullFileComparer(const std::string& file1path , const std::string& file2path) {
-                const int r1 = FileComparer<eIgnore::ALL>(file1path, file2path);
-                const int r2 = FileComparer<eIgnore::TRAILING>(file1path, file2path);
-                const int r3 = FileComparer<eIgnore::NONE>(file1path, file2path);
+            //запускает все три варианта сразу
+            static int FullFileComparer(const std::string& file1path
+                                      , const std::string& file2path
+                                      , const bool         nochar
+                                      , const bool         nostring) {
+                const int r1 = FileComparer<eIgnore::ALL>(file1path, file2path, nochar, nostring);
+                const int r2 = FileComparer<eIgnore::TRAILING>(file1path, file2path, nochar, nostring);
+                const int r3 = FileComparer<eIgnore::NONE>(file1path, file2path, nochar, nostring);
                 return (r1 == 0 && r2 == 0 && r3 == 0) ? 0 : -1;
             }
 
-            /*[END:=============================================FICO=================================================]*/
+            /*[END:============================================FICO™=================================================]*/
     };
 #undef IDENTITY
 }
@@ -415,8 +445,8 @@ namespace salatlib {
     salatlib::SALAT::FileComparer<salatlib::SALAT::eIgnore::NONE>(file1, file2)
 
 ///SALAT™: FICO™: run 3 FIleCOmparers for file1 and file2, returns 0 or -1
-#define SALAT_FULLFICO(file1, file2)\
-    salatlib::SALAT::FullFileComparer(file1, file2)
+#define SALAT_FULLFICO(file1, file2, nochar, nostring)\
+    salatlib::SALAT::FullFileComparer(file1, file2, nochar, nostring)
 #else
 #define SALAT_RINLOG(msg) ((void)0)
 #define SALAT_RINCTMFLOG(func, msg) ((void)0)
