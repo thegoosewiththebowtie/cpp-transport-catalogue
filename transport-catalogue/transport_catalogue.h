@@ -11,17 +11,19 @@ namespace transport_catalogue {
     /*[BEGIN:========================================TRANSPORTCATALOGUE==============================================]*/
     class TransportCatalogue {
         public:
-            void AddStop(std::string_view arg_name , const geo::Geo::Coordinates& arg_coords);
+            //добавляет остановку
+            void AddStop(std::string_view arg_name , const common::Coordinates& arg_coords);
+            //добавляет автобус, создает при необходимости новую пустую и передает указатель в автобус
             void AddBus(std::string_view                     arg_name
                       , const std::vector<std::string_view>& arg_stop_names
                       , bool                                 arg_is_roundtrip);
-            void AddStopsRoute(std::string_view arg_name1 , std::string_view arg_name2 , int arg_distance);
+
+            void AddStopsRoute(std::string_view arg_name1 , std::string_view arg_name2 , double arg_distance);
 
             const common::sStop*         FindStop(std::string_view arg_name) const;
             const common::sBus*          FindBus(std::string_view arg_name) const;
             const std::set<std::string>* FindStopBusList(std::string_view arg_name) const;
 
-            friend common::sBusStats;
             common::sBusStats                                      GetBusStats(const common::sBus* arg_bus) const;
             std::vector<std::string_view>                          GetSortedBusesView(bool arg_onlywithstops) const;
             std::vector<const common::sBus*>                       GetSortedBuses(bool arg_onlywithstops) const;
@@ -49,7 +51,7 @@ namespace transport_catalogue {
                     return h1 ^ (h2 << 1);
                 }
             };
-            std::unordered_map<std::pair<common::sStop* , common::sStop*> , int , RoadDistanceHasher> road_distance_;
+            std::unordered_map<std::pair<common::sStop* , common::sStop*> , double , RoadDistanceHasher> road_distance_;
     };
     /*[END:=========================================TRANSPORTCATALOGUE==============================================]*/
 }

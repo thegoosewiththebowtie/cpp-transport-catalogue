@@ -1,22 +1,16 @@
 /* [≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡▲≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡] */
 #pragma once
 #include <cmath>
+#include <string>
+#include <vector>
+
+#include "common.h"
+#include "svgLib/svglib.h"
 
 namespace transport_catalogue::geo {
     class Geo {
         public:
-            struct Coordinates {
-                double lat;
-                double lng;
-
-                bool operator==(const Coordinates& arg_other) const {
-                    return lat == arg_other.lat && lng == arg_other.lng;
-                }
-
-                bool operator!=(const Coordinates& arg_other) const { return !(*this == arg_other); }
-            };
-
-            static double ComputeDistance(const Coordinates& arg_from , const Coordinates& arg_to) {
+            static double ComputeDistance(const common::Coordinates& arg_from , const common::Coordinates& arg_to) {
                 {
                     if(arg_from == arg_to) { return 0.; }
                     static constexpr double kConversion_factor = kPi / kDegrees_per_pi;
@@ -32,9 +26,15 @@ namespace transport_catalogue::geo {
             static double GetRouteCurvature(const double arg_f_distance , const double arg_g_distance) {
                 return arg_f_distance / arg_g_distance;
             }
+
+            static svglib::sPoint GeoCoordToDrawCoord(common::Coordinates            arg_coordinates
+                                                    , const common::sMapData&        arg_map_data
+                                                    , const common::sRenderSettings& arg_render_settings);
+            static common::sMapData CalculateMapData(const std::vector<const common::sStop*>& arg_stops
+                                                   , const common::sRenderSettings&           arg_render_settings);
         private:
             static constexpr int    kEarth_radius   = 6371000;
-            static constexpr auto   kDegrees_per_pi = static_cast<double>(180);
+            static constexpr double kDegrees_per_pi = 180.;
             static constexpr double kPi             = 3.1415926535;
     };
 }

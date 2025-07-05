@@ -13,7 +13,7 @@
 namespace transport_catalogue {
     /*[BEGIN:========================================TRANSPORTCATALOGUE==============================================]*/
     /*[BEGIN:========================================TRANSPORTCATALOGUE:ADDERS=======================================]*/
-    void TransportCatalogue::AddStop(const std::string_view arg_name , const geo::Geo::Coordinates& arg_coords) {
+    void TransportCatalogue::AddStop(const std::string_view arg_name , const common::Coordinates& arg_coords) {
         stops_[std::string(arg_name)] = std::move(common::sStop{std::string(arg_name) , arg_coords});
     }
 
@@ -33,7 +33,7 @@ namespace transport_catalogue {
 
     void TransportCatalogue::AddStopsRoute(const std::string_view arg_name1
                                          , const std::string_view arg_name2
-                                         , const int              arg_distance) {
+                                         , const double              arg_distance) {
         common::sStop* stop1            = &stops_[std::string(arg_name1)];
         common::sStop* stop2            = &stops_[std::string(arg_name2)];
         road_distance_[{stop1 , stop2}] = arg_distance;
