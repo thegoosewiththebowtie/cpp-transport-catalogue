@@ -9,8 +9,17 @@
 namespace jsonlib {
     /*[BEGIN:===============================================NODE=====================================================]*/
     eValueType Node::GetValueType() const {
-        return std::visit([]<typename tVal>(tVal&&) -> eValueType { return ValueTypeMap<std::decay_t<tVal>>::kValue; }
-                        , value_);
+        const unsigned long long index = value_.index();
+        switch(index) {
+            case 0 : return NULLPTR_T;
+            case 1 : return ARRAY_TD;
+            case 2 : return DICT_TD;
+            case 3 : return BOOL;
+            case 4 : return INT;
+            case 5 : return DOUBLE;
+            case 6 : return STRING;
+            default: SALAT_RINTHR("INCODDECT INDEX"/*а еще признаю тут безумно замудрено было :<*/);
+        }
     }
 
     bool operator==(const value_TD& arg_lhs , const value_TD& arg_rhs) {
@@ -62,8 +71,6 @@ namespace jsonlib {
 
     /*[BEGIN:============================================JSONREADER==================================================]*/
     /*[BEGIN:============================================JSONREADER:HELPERS==========================================]*/
-    int JsonReader::Peek() const { return current_; }
-
     bool JsonReader::SkipWhitespace() {
         bool fail = true;
         while(current_ == ' ' || current_ == '\n' || current_ == '\t' || current_ == '\r') {
@@ -82,7 +89,7 @@ namespace jsonlib {
     bool JsonReader::PeekExpect(const char arg_character , const bool arg_critical) {
         SkipWhitespace();
         if(current_ != arg_character) {
-            if(arg_critical) { throw ParsingError("PeekExpect: Expected different char"); }
+            if(arg_critical) { SALAT_RINTHR("PeekExpect: Expected different char"); }
             return false;
         }
         Consume(true);
@@ -111,21 +118,20 @@ namespace jsonlib {
                 break;
             case '[' : out_node = ParseArray();
                 break;
-            case EOF : throw ParsingError("ParseNode: Unexpected end of file");
+            case EOF : SALAT_RINTHR("ParseNode: Unexpected end of file");
             default : if(std::isdigit(static_cast<unsigned char>(current_)) || current_ == '-') {
                     out_node = Node{ParseNumber()};
                     break;
                 }
-                throw ParsingError("ParseNode: Invalid character");
+                SALAT_RINTHR("ParseNode: Invalid character");
         }
         SkipWhitespace();
-        SALAT_CTMFBREAK("ParseNode");
         return out_node;
     }
 
     void JsonReader::ParseNullNBool(const std::string& arg_literal) {
         for(const char ch : arg_literal) {
-            if(current_ != ch) { throw ParsingError("Expected"); }
+            if(current_ != ch) { SALAT_RINTHR("Expected"); }
             Consume(false);
         }
     }
@@ -167,7 +173,7 @@ namespace jsonlib {
             tNumber value;
             auto    [ptr, ec] = std::from_chars(arg_number.data(), arg_number.data() + arg_number.size(), value);
             if(ec != std::errc{} || ptr != arg_number.data() + arg_number.size()) {
-                throw ParsingError("SubParseNumber: Invalid number");
+                SALAT_RINCTMFTHR("ParseNimber => LAMBDA", "INVALID NUMBER");
             }
             return value;
         };
@@ -177,12 +183,12 @@ namespace jsonlib {
 
     std::string JsonReader::ParseString() {
         std::string result;
-        if(current_ != '"') { throw ParsingError("ParseString: string must begin with '\"'"); }
+        if(current_ != '"') { SALAT_RINTHR("EXPECTED '\"'"); }
         Consume(false);
         while(current_ != '"' && current_ != EOF) {
             if(current_ == '\\') {
                 Consume(false);
-                if(current_ == EOF) { throw ParsingError("ParseString: unexpected EOF after backslash"); }
+                if(current_ == EOF) { SALAT_RINTHR("UNEXPECTED EOF"); }
                 switch(current_) {
                     case 'n' : result += '\n';
                         break;
@@ -194,7 +200,7 @@ namespace jsonlib {
                         break;
                     case '\\' : result += '\\';
                         break;
-                    default : throw ParsingError("ParseString: unrecognized escape sequence");
+                    default : SALAT_RINTHR("UNRECOQNIZED ESCAPE SEQUENCE");
                 }
                 Consume(false);
             }
@@ -203,7 +209,7 @@ namespace jsonlib {
                 Consume(false);
             }
         }
-        if(current_ != '"') { throw ParsingError("ParseString: unclosed string"); }
+        if(current_ != '"') { SALAT_RINTHR("EXPECTED '\"'"); }
         Consume(false);
         return result;
     }
@@ -255,7 +261,6 @@ namespace jsonlib {
             case STRING : PrintString(arg_node.As<std::string>());
                 break;
         }
-        SALAT_BREAK();
     }
 
     void JsonPrinter::PrintString(const std::string& arg_string) const {
@@ -312,52 +317,29 @@ namespace jsonlib {
 
     /*[BEGIN:==============================================GLOBAL====================================================]*/
     Document gLoad(std::istream& arg_input) {
-        SALAT_SALTBEGIN();
-        SALAT_CTMFBEGIN("ParseNode");
         JsonReader json_char_reader(arg_input);
-        Node       root = json_char_reader.ParseNode();
-        // ReSharper disable once CppDFAConstantConditions
-        if(json_char_reader.Peek() != -1) {
-            std::cout << "gLoad: Expected EOF, got:" << json_char_reader.Peek() << std::endl;
-        }
-        SALAT_CTMFEND("ParseNode");
-        SALAT_SALTEND();
+        const Node       root = json_char_reader.ParseNode();
         // оно не компилит в практикуме с std::move по неведомой мне причине :skull:
         return Document{/*std::move*/(root)};
     }
 
     void gPrint(const Document& arg_document , JsonPrinter& arg_output) {
-        SALAT_SALTBEGIN();
-        SALAT_CTMFBEGIN("PrintNode");
+
         arg_output.PrintNode(arg_document.GetRoot(), 0);
-        SALAT_CTMFEND("PrintNode");
-        SALAT_SALTEND();
     }
 
     void gPrint(Document* arg_document , JsonPrinter& arg_output) {
-        SALAT_SALTBEGIN();
-        SALAT_CTMFBEGIN("PrintNode");
         arg_output.PrintNode(arg_document->GetRoot(), 0);
-        SALAT_CTMFEND("PrintNode");
-        SALAT_SALTEND();
     }
 
     void gPrint(const Document& arg_document , std::ostream& arg_output) {
-        SALAT_SALTBEGIN();
-        SALAT_CTMFBEGIN("PrintNode");
         JsonPrinter json_printer{arg_output};
         json_printer.PrintNode(arg_document.GetRoot(), 0);
-        SALAT_CTMFEND("PrintNode");
-        SALAT_SALTEND();
     }
 
     void gPrint(Document* arg_document , std::ostream& arg_output) {
-        SALAT_SALTBEGIN();
-        SALAT_CTMFBEGIN("PrintNode");
         JsonPrinter json_printer{arg_output};
         json_printer.PrintNode(arg_document->GetRoot(), 0);
-        SALAT_CTMFEND("PrintNode");
-        SALAT_SALTEND();
     }
 
     /*[END:================================================GLOBAL====================================================]*/
