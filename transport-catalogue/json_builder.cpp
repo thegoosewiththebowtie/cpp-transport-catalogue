@@ -60,7 +60,7 @@ namespace json {
         }
         else {
             if(!std::holds_alternative<std::nullptr_t>(GetCurrentValue())) {
-                throw std::logic_error("Current object not empty");
+                throw std::logic_error("NON EMPTY");
             }
 
             cur_value = std::move(arg_value);
