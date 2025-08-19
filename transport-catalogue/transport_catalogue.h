@@ -11,9 +11,7 @@ namespace transport_catalogue {
     /*[BEGIN:========================================TRANSPORTCATALOGUE==============================================]*/
     class TransportCatalogue {
         public:
-            //добавляет остановку
             void AddStop(std::string_view arg_name , const common::Coordinates& arg_coords);
-            //добавляет автобус, создает при необходимости новую пустую и передает указатель в автобус
             void AddBus(std::string_view                     arg_name
                       , const std::vector<std::string_view>& arg_stop_names
                       , bool                                 arg_is_roundtrip);
@@ -31,12 +29,12 @@ namespace transport_catalogue {
             std::vector<const common::sStop*> GetSortedStops(bool arg_onlywithbuses) const;
             const std::unordered_map<std::string , common::sBus>*  GetUnsortedBuses() const;
             const std::unordered_map<std::string , common::sStop>* GetUnsortedStops() const;
+            double GetStopsDistance(common::sStop* arg_stop1 , common::sStop* arg_stop2) const;
         private:
             static size_t GetBusStopCount(const common::sBus* arg_bus);
             static size_t GetUniqueStopCount(const common::sBus* arg_bus);
             static double GetRouteGeoDistance(const common::sBus* arg_bus);
 
-            double GetStopsDistance(common::sStop* arg_stop1 , common::sStop* arg_stop2) const;
             double GetRouteFactualDistance(const common::sBus* arg_bus) const;
 
             std::unordered_map<std::string , std::set<std::string>> buses_by_stop_;

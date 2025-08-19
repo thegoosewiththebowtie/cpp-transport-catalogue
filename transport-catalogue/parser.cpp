@@ -7,8 +7,10 @@
 #include "geo.h"
 #include "json.h"
 #include "json_builder.h"
+#include "router.h"
 #include "svg.h"
 #include "transport_catalogue.h"
+#include "transport_router.h"
 
 namespace transport_catalogue::parser {
     void Parser::ChangeCatalogue(TransportCatalogue* arg_transport_catalogue) {
@@ -24,31 +26,34 @@ namespace transport_catalogue::parser {
         const json::Node&                     basenode = doc->GetRoot();
         if(basenode.GetValueType() != json::DICT_TD) { throw std::logic_error("wrong type recieved, expected map"); }
         requests_.main_map = std::move(root);
-        if(requests_.main_map.size() != 3) {
-            throw std::logic_error("recieved a map of " + std::to_string(requests_.main_map.size()) +
-                                   " elements, expected 2 or 3");
-        }
         if(requests_.main_map.find("base_requests") != requests_.main_map.end() && !requests_.main_map.
                                                                                               at("base_requests").As<
                                                                                                   json::Array>().
                                                                                               empty()) {
             requests_.input_requests = &requests_.main_map.at("base_requests").AsMutable<json::Array>();
         }
-        else { requests_.input_requests = {}; }
+        else { requests_.input_requests = nullptr; }
         if(requests_.main_map.find("stat_requests") != requests_.main_map.end() && !requests_.main_map.
                                                                                               at("stat_requests").As<
                                                                                                   json::Array>().
                                                                                               empty()) {
             requests_.output_requests = &requests_.main_map.at("stat_requests").AsMutable<json::Array>();
         }
-        else { requests_.output_requests = {}; }
+        else { requests_.output_requests = nullptr; }
         if(requests_.main_map.find("render_settings") != requests_.main_map.end() && !requests_.main_map.
                                                                                                 at("render_settings").As
                                                                                                 <json::Dict>().
                                                                                                 empty()) {
             SetRenderSettingsFromNode(requests_.main_map.at("render_settings").AsMutable<json::Dict>());
         }
-        else { requests_.render_settings = {}; }
+        if(requests_.main_map.find("routing_settings") != requests_.main_map.end() && !requests_.main_map.
+                                                                                                 at("routing_settings").
+                                                                                                 As<json::Dict>().
+                                                                                                 empty()) {
+            SetRoutingSettingsFromNode(requests_.main_map.at("routing_settings").AsMutable<json::Dict>());
+        }
+        else { requests_.render_settings = nullptr; }
+        if(requests_.input_requests == nullptr) { return; }
         for(const json::Node& element : *requests_.input_requests) {
             const std::map<std::string , json::Node> element_map = element.As<json::Dict>();
             std::string                              type        = element_map.at("type").As<std::string>();
@@ -64,8 +69,7 @@ namespace transport_catalogue::parser {
     }
 
     void Parser::Serialize(std::ostream&         arg_output
-                         , common::eOutputFilter arg_output_filter = common::eOutputFilter::NONE) {
-        //в тестах был параметр --render_only, поэтому сразу реализую и render_only и requests_only
+                         , const common::eOutputFilter arg_output_filter = common::eOutputFilter::NONE) {
         bool printmap   = false;
         bool printstats = false;
         switch(arg_output_filter) {
@@ -79,26 +83,40 @@ namespace transport_catalogue::parser {
         }
         json::Builder builder;
         builder.BeginArray();
+        const router::TransportRouter router_main(transport_catalogue_, routing_settings_);
         if(requests_.main_map.empty()) { throw std::logic_error("NO REQUESTS. SERIALIZE FIRST"); }
+        if(requests_.output_requests == nullptr) {
+            json::gPrint(builder.EndArray().Build(), arg_output);
+            return;
+        }
         for(const json::Node& request : *requests_.output_requests) {
             const std::map<std::string , json::Node>& current_request = request.As<json::Dict>();
             auto                                      id              = current_request.find("id");
+            const int                                       id_int          = id->second.As<int>();
             if(id == current_request.end()) { throw std::logic_error("NO ID IN REQUEST"); }
-            auto type = current_request.find("type");
+            auto        type        = current_request.find("type");
+            std::string type_string = type->second.As<std::string>();
             if(type == current_request.end()) { throw std::logic_error("NO TYPE IN REQUEST"); }
             auto name = current_request.find("name");
-            if(name == current_request.end() && type->second.As<std::string>() != "Map") {
+            if(name == current_request.end() && type_string != "Map" && type_string != "Route") {
                 throw std::logic_error("NO NAME IN REQUEST");
             }
-            switch(type->second.As<std::string>()[0]) {
+            switch(type_string[0]) {
                 case 'B' : if(!printstats) { continue; }
-                    BusToNode(id->second.As<int>(), name->second.As<std::string>(), builder);
+                    BusToNode(id_int, name->second.As<std::string>(), builder);
                     break;
                 case 'S' : if(!printstats) { continue; }
-                    StopToNode(id->second.As<int>(), name->second.As<std::string>(), builder);
+                    StopToNode(id_int, name->second.As<std::string>(), builder);
+                    break;
+                case 'R' : if(!printstats) { continue; }
+                    RouteToNode(id_int
+                              , current_request.find("from")->second.As<std::string>()
+                              , current_request.find("to")->second.As<std::string>()
+                              , builder
+                              , router_main);
                     break;
                 case 'M' : if(!printmap) { continue; }
-                    GetSvgNode(id->second.As<int>(), builder);
+                    GetSvgNode(id_int, builder);
                     break;
                 default : throw std::logic_error("INCORRECT TYPE IN REQUEST");
             }
@@ -107,16 +125,11 @@ namespace transport_catalogue::parser {
     }
 
     void Parser::AddNodeBus(const std::map<std::string , json::Node>& arg_busmap) const {
-        //достает данные и кидает если их нет
         const auto name = arg_busmap.find("name");
         if(name == arg_busmap.end()) { throw std::logic_error("NO NAME IN REQUEST"); }
         const std::string& busname = name->second.As<std::string>();
-        //фан факт - чатгепете не любит писать ошибки БОЛЬШИМИ БУКВАМИ И КОРОТКО, а напишет stops not found in stopmap
-        //(да, я только что попросила его написать ошибку для этого примера, так что проверено)
         const auto stops = arg_busmap.find("stops");
         if(stops == arg_busmap.end()) { throw std::logic_error("NO STOPS IN REQUEST"); }
-        /*thread_local std::vector<std::string_view> busstops; юзала thread_local чтобы избежать необходимости каждый
-         *раз аллоцировать целый вектор, но раз уж упрощаем...*/
         std::vector<std::string_view> busstops;
         busstops.reserve(stops->second.As<json::Array>().size());
         for(const json::Node& stop : stops->second.As<json::Array>()) { busstops.push_back(stop.As<std::string>()); }
@@ -127,7 +140,6 @@ namespace transport_catalogue::parser {
     }
 
     void Parser::AddNodeStop(const std::map<std::string , json::Node>& arg_stopmap) const {
-        //достает данные и кидает если их нет
         const auto name = arg_stopmap.find("name");
         if(name == arg_stopmap.end()) { throw std::logic_error("NO NAME IN REQUEST"); }
         const std::string& stopname = name->second.As<std::string>();
@@ -135,7 +147,6 @@ namespace transport_catalogue::parser {
         if(latitude == arg_stopmap.end()) { throw std::logic_error("NO LATITUDE IN REQUEST"); }
         const double& stoplatitude = latitude->second.As<double>();
         const auto    longitude    = arg_stopmap.find("longitude");
-        //ну и еще он не юзал бы мою библиотеку и написал throw std::runtime_error
         if(longitude == arg_stopmap.end()) { throw std::logic_error("NO LONGITUDE IN REQUEST"); }
         const double&             stoplongitude = longitude->second.As<double>();
         const common::Coordinates stopcoordinates{stoplatitude , stoplongitude};
@@ -160,21 +171,21 @@ namespace transport_catalogue::parser {
         render_settings_.stop_label_offset    = NodeToPoint(arg_render_settings.at("stop_label_offset"));
         render_settings_.underlayer_color     = NodeToColor(arg_render_settings.at("underlayer_color"));
         render_settings_.underlayer_width     = arg_render_settings.at("underlayer_width").As<double>();
-        //ну а тут оно всю color_palette закидывает в render_settings, idk сколько комментов писать tbh но пусть будет
-        //не добавляет сразу в color_palette_ потому что color_palette_  - приватный, чтобы нужно было брать только
-        //через GetNextColor чтобы продвинуться или GetColor если нужен предыдущий
         for(const json::Node& node : arg_render_settings.at("color_palette").As<json::Array>()) {
             render_settings_.AddColor(NodeToColor(node));
         }
     }
 
+    void Parser::SetRoutingSettingsFromNode(const std::map<std::string , json::Node>& arg_routing_settings) {
+        routing_settings_.bus_wait_time = arg_routing_settings.at("bus_wait_time").As<int>();
+        routing_settings_.bus_velocity  = arg_routing_settings.at("bus_velocity").As<int>();
+    }
+
     svglib::color_TD Parser::NodeToColor(const json::Node& arg_node) {
         if(arg_node.GetValueType() != json::ARRAY_TD) {
-            //возвращает строку если строка, кидает если не строка
             if(arg_node.GetValueType() == json::STRING) { return arg_node.As<std::string>(); }
             throw std::invalid_argument("INVALID COLOR TYPE");
         }
-        //преобразует в sSolidColor если нет прозрачности и в прозрачный если она есть, кидает если array неправильный
         const std::vector<json::Node>& node = arg_node.As<json::Array>();
         switch(node.size()) {
             case 3 : return svglib::sSolidColor{static_cast<uint8_t>(node.at(0).As<int>())
@@ -191,7 +202,6 @@ namespace transport_catalogue::parser {
     svglib::sPoint Parser::NodeToPoint(const json::Node& arg_node) {
         const std::vector<json::Node>& node = arg_node.As<json::Array>();
         if(node.size() != 2) {
-            //кидает если array не точка
             throw std::invalid_argument("INVALID ARRAY SIZE");
         }
         return {node.at(0).As<double>() , node.at(1).As<double>()};
@@ -220,15 +230,38 @@ namespace transport_catalogue::parser {
         }
         const std::set<std::string>* buses = transport_catalogue_->FindStopBusList(arg_stop_name);
         arg_builder.Key("buses").BeginArray();
-        if(buses != nullptr) {
-            for(const std::string& busname : *buses) {
-                arg_builder.Value(busname);
-            }
-        }
+        if(buses != nullptr) { for(const std::string& busname : *buses) { arg_builder.Value(busname); } }
         arg_builder.EndArray().EndDict();
     }
 
-    void Parser::GetSvgNode(int arg_id, json::Builder& arg_builder) {
+    void Parser::RouteToNode(int                            arg_id
+                           , const std::string&             arg_from
+                           , const std::string&             arg_to
+                           , json::Builder&                 arg_builder
+                           , const router::TransportRouter& arg_router) const {
+        std::optional<common::sRouteInfo> route_info = arg_router.GetRoute(transport_catalogue_->FindStop(arg_from)
+                                                                         , transport_catalogue_->FindStop(arg_to));
+        if(!route_info.has_value()) {
+            arg_builder.BeginDict().Key("request_id").Value(arg_id).Key("error_message").Value("not found").EndDict();
+            return;
+        }
+        arg_builder.BeginDict().Key("items").BeginArray();
+        for(const auto& [name, isbus, time, span_count] : route_info.value().items) {
+            switch(isbus) {
+                case false : arg_builder.BeginDict().Key("stop_name").Value(name).Key("time").Value(time).
+                                         Key("type").Value("Wait").EndDict();
+                    break;
+                case true : arg_builder.BeginDict().Key("bus").Value(name).Key("span_count").
+                                        Value(span_count.value()).Key("time").Value(time).Key("type").
+                                        Value("Bus").EndDict();
+                    break;
+            }
+        }
+        arg_builder.EndArray().Key("request_id").Value(arg_id).Key("total_time").Value(route_info.value().total_time).
+                    EndDict();
+    }
+
+    void Parser::GetSvgNode(int arg_id , json::Builder& arg_builder) {
         std::stringstream svg;
         Render(svg);
         arg_builder.BeginDict().Key("request_id").Value(arg_id);
@@ -237,29 +270,20 @@ namespace transport_catalogue::parser {
 
     void Parser::Render(std::ostream& arg_output) {
         svglib::Document todraw;
-        //создаем документ, который будем рендерить
-        //линии путей и их названия
         std::vector<svglib::Polyline> routes;
         std::vector<svglib::Text>     routenames;
-        //наполняем их
         RenderRoutes(routes, routenames);
-        //то же самое для точек остановок и их названий
         std::vector<svglib::Circle> stopcircles;
         std::vector<svglib::Text>   stopnames;
-        //теперь наполняем
         RenderStops(stopnames, stopcircles);
-        //добавляем в правильном порядке
         for(svglib::Polyline& route : routes) { todraw.Add(std::move(route)); }
         for(svglib::Text& routename : routenames) { todraw.Add(std::move(routename)); }
         for(svglib::Circle& stopscircle : stopcircles) { todraw.Add(std::move(stopscircle)); }
         for(svglib::Text& stopname : stopnames) { todraw.Add(std::move(stopname)); }
-        //рендерим todraw в arg_output
         todraw.Render(arg_output);
     }
 
     void Parser::RenderRoutes(std::vector<svglib::Polyline>& arg_routes , std::vector<svglib::Text>& arg_routenames) {
-        //цикл с рендерингом всех путей вынесен в отдельную функцию для: симметричности в render, и для
-        //более логичного RouteToPolyline, который только преобразует один путь в ломаную, а не все
         const std::vector<const common::sBus*> buses = transport_catalogue_->GetSortedBuses(true);
         for(const common::sBus* const bus : buses) {
             svglib::Polyline route;
@@ -271,20 +295,12 @@ namespace transport_catalogue::parser {
         }
     }
 
-    /*template<bool tIsReverse> раз уж мой template такой антиприкольный, пусть будет двойной цикл  ¯\_ (ツ)_/¯*/
     void Parser::RouteToPolyline(const common::sBus*        arg_bus
                                , svglib::Polyline&          arg_route
-                               , std::vector<svglib::Text>& arg_routenames) {
+                               , std::vector<svglib::Text>& arg_routenames) const {
         if(!arg_bus) { return; }
-        /*auto stops = [](const auto& arg_bus_stops) {
-            тут я делала разветвление между вариантом когда функция была вызвана первый раз
-            if constexpr(tIsReverse) { return std::ranges::reverse_view(arg_bus_stops); }
-            и когда рекурсивно. используется сразу вызываемая лямбда для того, чтобы данные шли в
-            одну и ту же переменную и один цикл справлялся
-            else { return std::views::all(arg_bus_stops); }
-        }(arg_bus->stops);*/
-        auto stops     = arg_bus->stops;
-        auto makelabel = [&](const common::sStop* arg_stop) {
+        std::vector<common::sStop*> stops     = arg_bus->stops;
+        auto                        makelabel = [&](const common::sStop* arg_stop) {
             svglib::Text routenamebg;
             routenamebg.SetFillColor(render_settings_.underlayer_color).
                         SetStrokeWidth(render_settings_.underlayer_width).
@@ -304,7 +320,6 @@ namespace transport_catalogue::parser {
         };
         bool first = true;
         for(const common::sStop* stop : stops) {
-            //проходимся по остановкам пути и делаем точки ломаной и названия
             if(stop == nullptr) { continue; }
             if(first) {
                 makelabel(stop);
@@ -317,7 +332,6 @@ namespace transport_catalogue::parser {
             for(const common::sStop* stop : std::ranges::reverse_view(stops)) {
                 if(stop == nullptr) { continue; }
                 if(first) {
-                    //проверяем не заканчивается ли некруговой маршрут на той же остановке, что и начался
                     if(stops.front() != stops.back()) { makelabel(stop); }
                     first = false;
                     continue;
@@ -331,7 +345,6 @@ namespace transport_catalogue::parser {
                            , std::vector<svglib::Circle>& arg_stopcircles) const {
         const std::vector<const common::sStop*> stops = transport_catalogue_->GetSortedStops(true);
         for(const common::sStop* stop : stops) {
-            //проходимся по всем отсортированным остановкам с маршрутами и рисуем точки и названия
             svglib::Circle circle;
             circle.SetFillColor("white").SetCenter(geo::Geo::GeoCoordToDrawCoord(stop->coordinates
                                                                                , map_data_

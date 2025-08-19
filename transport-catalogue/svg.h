@@ -10,19 +10,16 @@
 #include <vector>
 namespace svglib {
     /*[BEGIN:===============================================ENUMS====================================================]*/
-    //варианты для настроек свгшки
     enum class eStrokeLineCap { BUTT , ROUND , SQUARE , };
     enum class eStrokeLineJoin { ARCS , BEVEL , MITER , MITER_CLIP , ROUND , };
     /*[END:=================================================ENUMS====================================================]*/
 
     /*[BEGIN:==============================================STRUCTS===================================================]*/
-    //структура для непрозрачного цвета
     struct sSolidColor {
         unsigned char red{0};
         unsigned char green{0};
         unsigned char blue{0};
     };
-    //прозрачного цвета
     struct sTransparentColor {
         unsigned char red{0};
         unsigned char green{0};
@@ -30,11 +27,9 @@ namespace svglib {
         double        opacity{1};
     };
     /*[BEGIN:=============================================TYPEDEFS===================================================]*/
-    //собсно цвет
     using color_TD = std::variant<std::monostate , std::string , sSolidColor , sTransparentColor>;
     inline const color_TD K_NONE_COLOR{"none"};
     /*[END:===============================================TYPEDEFS===================================================]*/
-    //визитор для варианта с цветом, умеет их выводить
     struct sColourVisitor {
         std::ostream& out;
         void          operator()(std::monostate) const { out << "none"; }
@@ -52,7 +47,6 @@ namespace svglib {
             out.flags(f);
         }
     };
-    //точка
     struct sPoint {
         sPoint() = default;
 
@@ -63,7 +57,6 @@ namespace svglib {
         double x{0};
         double y{0};
     };
-    //рендерилка, через нее все печатается
     struct sRenderContext {
         sRenderContext(std::ostream& arg_out)
             : out(arg_out) {}
@@ -112,7 +105,6 @@ namespace svglib {
         }
         return arg_os;
     }
-    //<< для color_TD (но работает в основном sColorVisitor)
     inline std::ostream& operator<<(std::ostream& arg_out , const color_TD& arg_colour) {
         std::visit(sColourVisitor{arg_out}, arg_colour);
         return arg_out;
@@ -122,7 +114,6 @@ namespace svglib {
 
     /*[BEGIN:==============================================CLASSES===================================================]*/
     /*[BEGIN:==============================================OBJECTS===================================================]*/
-    //общий класс для удобства манипуляции остальных
     class Object {
         public:
             virtual ~Object() = default;
@@ -130,12 +121,10 @@ namespace svglib {
         private:
             virtual void RenderObject(const sRenderContext& arg_context) const = PURE_CTM;
     };
-//общий класс для общих параметров, является темплейтов для того \/
     template<typename tDerived>
     class PathProps {
         public:
             virtual ~PathProps() = default;
-            //чтобы эти функции могли возвращать правильный тип (тот от которого пришла команда
             tDerived& SetFillColor(const color_TD& arg_colour);
             tDerived& SetStrokeColor(const color_TD& arg_colour);
             tDerived& SetStrokeWidth(double arg_width);
@@ -204,7 +193,6 @@ namespace svglib {
     /*[END:================================================OBJECTS===================================================]*/
 
     /*[BEGIN:=========================================OBJECTS_CONTAINERS=============================================]*/
-    //родительский класс для всех контейнеров хранящих объекты, пока это ток Document
     class ObjectContainer {
         public:
             virtual ~ObjectContainer() = default;

@@ -4,7 +4,6 @@
 
 
 namespace transport_catalogue::geo {
-    //рассчитывает минимальные/максимальные координаты и модификаторы для sMapData
     common::sMapData Geo::CalculateMapData(const std::vector<const common::sStop*>& arg_stops
                                          , const common::sRenderSettings&           arg_render_settings) {
         double min_lat = arg_stops.front()->coordinates.lat;
@@ -32,7 +31,6 @@ namespace transport_catalogue::geo {
         return {min_lat , min_lng , max_lat , max_lng , xzmod , yzmod , czmod};
     }
 
-    //преобразует географические координаты в координаты для отрисовки с использованием данных из map_data и render_settings
     svglib::sPoint Geo::GeoCoordToDrawCoord(const common::Coordinates              arg_coordinates
                                           , const common::sMapData&        arg_map_data
                                           , const common::sRenderSettings& arg_render_settings) {

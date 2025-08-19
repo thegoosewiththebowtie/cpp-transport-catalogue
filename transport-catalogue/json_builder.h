@@ -12,27 +12,20 @@ namespace json {
         Node               root_;
         std::vector<Node*> nodes_stack_;
 
-        [[nodiscard]] Value&       GetCurrentValue();
-        [[nodiscard]] const Value& GetCurrentValue() const;
+        [[nodiscard]] Value_TD&       GetCurrentValue();
+        [[nodiscard]] const Value_TD& GetCurrentValue() const;
 
-        void AddValue(Value arg_value , bool arg_once);
+        void AddValue(Value_TD arg_value , bool arg_once);
 
         class BaseBuilder {
             public:
                 BaseBuilder(Builder& arg_builder) : builder_(arg_builder) {}
-
                 Node Build() { return builder_.Build(); }
-
                 DictKeyContext Key(std::string arg_key) { return builder_.Key(std::move(arg_key)); }
-
-                BaseBuilder Value(Value arg_value) { return builder_.Value(std::move(arg_value)); }
-
+                BaseBuilder Value(Value_TD arg_value) { return builder_.Value(std::move(arg_value)); }
                 DictValueContext BeginDict() { return builder_.BeginDict(); }
-
                 ArrayValueContext BeginArray() { return builder_.BeginArray(); }
-
                 BaseBuilder EndDict() { return builder_.EndDict(); }
-
                 BaseBuilder EndArray() { return builder_.EndArray(); }
             private:
                 Builder& builder_;
@@ -43,7 +36,7 @@ namespace json {
                 DictValueContext(Builder& arg_builder) : BaseBuilder(arg_builder) {}
                 explicit          DictValueContext(const BaseBuilder arg_context) : BaseBuilder(arg_context) {}
                 Node              Build()                      = delete;
-                BaseBuilder       Value(json::Value arg_value) = delete;
+                BaseBuilder       Value(json::Value_TD arg_value) = delete;
                 DictValueContext  BeginDict()                  = delete;
                 ArrayValueContext BeginArray()                 = delete;
                 BaseBuilder       EndArray()                   = delete;
@@ -54,7 +47,7 @@ namespace json {
                 DictKeyContext(Builder& arg_builder) : BaseBuilder(arg_builder) {}
                 explicit DictKeyContext(const BaseBuilder arg_context) : BaseBuilder(arg_context) {}
 
-                DictValueContext Value(json::Value arg_value) {
+                DictValueContext Value(json::Value_TD arg_value) {
                     return DictValueContext(BaseBuilder::Value(std::move(arg_value)));
                 }
 
@@ -69,7 +62,7 @@ namespace json {
                 ArrayValueContext(Builder& arg_builder) : BaseBuilder(arg_builder) {}
                 explicit ArrayValueContext(const BaseBuilder arg_context) : BaseBuilder(arg_context) {}
 
-                ArrayValueContext Value(json::Value arg_value) {
+                ArrayValueContext Value(json::Value_TD arg_value) {
                     return ArrayValueContext(BaseBuilder::Value(std::move(arg_value)));
                 }
 
@@ -81,7 +74,7 @@ namespace json {
             Builder();
             Node              Build();
             DictKeyContext    Key(std::string arg_key);
-            BaseBuilder       Value(json::Value arg_value);
+            BaseBuilder       Value(Value_TD arg_value);
             DictValueContext  BeginDict();
             BaseBuilder       EndDict();
             ArrayValueContext BeginArray();

@@ -14,11 +14,7 @@ namespace json {
             case 4 : return INT;
             case 5 : return DOUBLE;
             case 6 : return STRING;
-            default : throw std::logic_error("INCODDECT INDEX");
-                //использую throw std::logic_error чтобы убрать зависимость от салата, Я ВСЕ ЕЩЕ НЕ ИИ
-                //(если в этот раз проверяет не Дмитрий Мамонтов - немного контекста: он сказал что мой код
-                //похож на ИИшный И Я, КАК СИДЯЩАЯ ПО 12-15 ЧАСОВ В ДЕНЬ ПЕРЕД IDE, ДО СИХ ПОР ОСКОРБЛЕНА)
-                //(ну и еще у меня оч neat библиотека есть - SALAT™, которую я для профилировки написала)
+            default : throw std::logic_error("INCORRECT INDEX");
         }
     }
 
@@ -33,12 +29,36 @@ namespace json {
             case DOUBLE : return As<double>() == arg_other.As<double>();
             case STRING : return As<std::string>() == arg_other.As<std::string>();
         }
-        throw std::logic_error("INCODDECT INDEX");
+        throw std::logic_error("INCORRECT INDEX");
     }
 
     bool            Node::operator!=(const Node& arg_other) const { return !(*this == arg_other); }
-    Value&       Node::GetValue() { return *this; }
-    const Value& Node::GetValue() const { return *this; }
+    Value_TD&       Node::GetValue() { return *this; }
+    const Value_TD& Node::GetValue() const { return *this; }
+    template<cIsAllowedNodeType tValueType>
+   bool Node::Is() const {
+        if constexpr(std::same_as<tValueType , double>) {
+            if(std::holds_alternative<int>(*this)) { return true; }
+        }
+        return std::holds_alternative<tValueType>(*this);
+    }
+
+    template<cIsAllowedNodeType tValueType>
+    std::conditional_t<std::disjunction_v<std::is_same<tValueType, double>, std::is_same<tValueType, int>>, tValueType,
+    const tValueType&> Node::As() const {
+        if(!Is<tValueType>()) { throw std::logic_error("Unexpected node type"); }
+        if constexpr(std::same_as<tValueType , double>) {
+            if(std::holds_alternative<int>(*this)) { return static_cast<double>(std::get<int>(*this)); }
+            return std::get<double>(*this);
+        }
+        else { return std::get<tValueType>(*this); }
+    }
+
+    template<cIsAllowedNodeType tValueType>
+    tValueType& Node::AsMutable() {
+        if(!Is<tValueType>()) { throw std::logic_error("Unexpected node type"); }
+        return std::get<tValueType>(*this);
+    }
     /*[END:=================================================NODE=====================================================]*/
 
     /*[BEGIN:=============================================DOCUMENT===================================================]*/
@@ -298,8 +318,7 @@ namespace json {
     Document gLoad(std::istream& arg_input) {
         JsonReader json_char_reader(arg_input);
         const Node root = json_char_reader.ParseNode();
-        // оно не компилит в практикуме с std::move по неведомой мне причине :skull:
-        return Document{/*std::move*/(root)};
+        return Document{root};
     }
 
     void gPrint(const Document& arg_document , JsonPrinter& arg_output) {

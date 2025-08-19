@@ -1,6 +1,5 @@
 /* [≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡▲≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡] */
 #pragma once
-#define SALAT_ENABLED 1
 #include <map>
 #include <string>
 #include <vector>
@@ -23,7 +22,7 @@ namespace transport_catalogue :: common {
     };
     struct sStop {
         std::string           name;
-        Coordinates coordinates;
+        Coordinates       coordinates;
     };
     struct sBus {
         std::string         name;
@@ -36,30 +35,34 @@ namespace transport_catalogue :: common {
         double factual_distance;
         double curvature;
     };
+    struct sRouteItem {
+        std::string        name;
+        bool               isbus;
+        double             time;
+        std::optional<int> span_count;
+    };
+    struct sRouteInfo {
+        double                   total_time;
+        std::vector<sRouteItem> items;
+    };
     struct sRenderSettings {
         void AddColor(svglib::color_TD&& arg_colour) { color_palette_.push_back(std::move(arg_colour)); }
 
-        [[nodiscard]] const svglib::color_TD& GetNextColor() {
-            if(color_palette_.empty()) { return kNull; }
-            if(current_id_ == color_palette_.size() - 1) { current_id_ = 0; }
-            else { ++current_id_; }
-            return color_palette_[current_id_ == 0 ? color_palette_.size() - 1 : current_id_ - 1];
-        }
+        [[nodiscard]] const svglib::color_TD& GetNextColor();
 
-        [[nodiscard]] const svglib::color_TD& GetColor() const {
-            if(color_palette_.empty()) { return kNull; }
-            return color_palette_[current_id_ == 0 ? color_palette_.size() - 1 : current_id_ - 1];
-        }
-        double           width{} , height{} , padding{} , line_width{} , stop_radius{} , underlayer_width{};
-        int  bus_label_font_size{} , stop_label_font_size{};
-        svglib::sPoint   bus_label_offset{} , stop_label_offset{};
-        svglib::color_TD underlayer_color{};
+        [[nodiscard]] const svglib::color_TD& GetColor() const;
+        double                                width{} ,               height{} , padding{} , line_width{} , stop_radius{} , underlayer_width{};
+        int                                   bus_label_font_size{} , stop_label_font_size{};
+        svglib::sPoint                        bus_label_offset{} ,    stop_label_offset{};
+        svglib::color_TD                      underlayer_color{};
         private:
             unsigned long long current_id_{0};
             static constexpr svglib::color_TD kNull{};
             std::vector<svglib::color_TD>     color_palette_{};
     };
-
+    struct sRoutingSettings {
+      int bus_wait_time = 5, bus_velocity = 40;
+    };
     struct sMapData {
         double min_lat , min_lng , max_lat , max_lng , xzmod , yzmod , czmod;
     };
